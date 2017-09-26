@@ -139,29 +139,17 @@ process (jack_nframes_t frames, void* arg)
 
         // mute
         if (event.buffer[1] == 0x6a) {
-            if (event.buffer[0] == 0x98) {
-                mutePressed = 1;
-            } else {
-                mutePressed = 0;
-            }
+            mutePressed = event.buffer[0] == 0x98;
         }
 
         // solo
         if (event.buffer[1] == 0x6b) {
-            if (event.buffer[0] == 0x98) {
-                soloPressed = 1;
-            } else {
-                soloPressed = 0;
-            }
+            soloPressed = event.buffer[0] == 0x98;
         }
 
         // rec arm
         if (event.buffer[1] == 0x6c) {
-            if (event.buffer[0] == 0x98) {
-                recArmPressed = 1;
-            } else {
-                recArmPressed = 0;
-            }
+            recArmPressed = event.buffer[0] == 0x98;
         }
 
         // Track Focus
