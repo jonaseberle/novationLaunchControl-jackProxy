@@ -1,4 +1,4 @@
-// gcc -o jack_midi_dump -Wall midi_dump.c -ljack -pthread
+// gcc -Wall -ljack -pthread
 
 #include <stdio.h>
 #include <string.h>
@@ -35,6 +35,8 @@ int soloPressed = 0;
 int recArmPressed = 0;
 
 const int trackFocusNotesPreset1[8] = { 41, 42, 43, 44, 57, 58, 59, 60 };
+int trackFocusStatePreset1[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
 const int trackControlNotesPreset1[8] = { 73, 74, 75, 76, 89, 90, 91, 92 };
 
 static void
@@ -92,6 +94,25 @@ send (jack_midi_event_t event, jack_nframes_t frames, jack_nframes_t frame) {
     assert (jackBufferOut);
     eventBufferOut = jack_midi_event_reserve(jackBufferOut, frame, message_size);
     memcpy(eventBufferOut, event.buffer, event.size * sizeof(jack_midi_data_t));
+
+    return 0;
+}
+
+int
+updateTrackFocus(jack_nframes_t frames, jack_nframes_t frame) {
+    jack_midi_event_t *event = new jack_midi_event_t;
+
+    for (int i = 0; i < 8; i++) {
+        if (trackFocusStatePreset1[i]) {
+
+        } else {
+
+        }
+    }
+
+    send(*event, frames, frame);
+
+    return 0;
 }
 
 int
@@ -103,7 +124,7 @@ process (jack_nframes_t frames, void* arg)
     assert (jackBufferIn);
 
     for (jack_nframes_t frame = 0; frame < jack_midi_get_event_count (jackBufferIn); ++frame) {
-        jack_midi_event_t event;
+        int echo = 1;
 
         // read
         jack_midi_event_get (&event, jackBufferIn, frame);
@@ -153,34 +174,46 @@ process (jack_nframes_t frames, void* arg)
         }
 
         // Track Focus
+        // note on
         if (event.buffer[0] == 0x98 && event.buffer[2] == 0x7f) {
             for (int i = 0; i < 8; i++) {
                 if (event.buffer[1] == trackFocusNotesPreset1[i]) {
+                    trackFocusStatePreset1[i] = ! trackFocusStatePreset1[i];
+
+                    updateTrackFocus(frames, frame);
+
                     if (mutePressed) {
                         send(event, frames, frame);
-                        event.buffer[1] += 4;
                     }
                     if (soloPressed) {
                         send(event, frames, frame);
-                        event.buffer[1] += 4;
                     }
                     if (recArmPressed) {
                         send(event, frames, frame);
-                        event.buffer[1] += 4;
                     }
+                }
+                printf("%d ", trackFocusStatePreset1[i]);
+            }
+        }
+        // note off
+        if (event.buffer[0] == 0x88 && event.buffer[2] == 0x0) {
+            for (int i = 0; i < 8; i++) {
+                if (event.buffer[1] == trackFocusNotesPreset1[i]) {
+                    echo = 0;
                 }
             }
         }
 
-        if (soloPressed && event.buffer[0] == 0x98 && event.buffer[1] == 73 && event.buffer[2] == 0x7f) {
-            send(event, frames, frame);
-            event.buffer[1] = 0;
-printf("MUTED track \n");
-        }
+
+//        if (soloPressed && event.buffer[0] == 0x98 && event.buffer[1] == 73 && event.buffer[2] == 0x7f) {
+//            send(event, frames, frame);
+//            event.buffer[1] = 0;
+//printf("MUTED track \n");
+//        }
 
 
         // write
-        if (1) {
+        if (echo) {
             // change channel
 //            event.buffer[0] &= 0xf0 | 9;
             send(event, frames, frame);
@@ -210,10 +243,10 @@ main (int argc, char* argv[])
 		fprintf (stderr, "Could not create JACK client.\n");
 		exit (EXIT_FAILURE);
 	}
-    portIn = jack_port_register (client, "L C XL in", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput | JackPortIsTerminal, 0);
+    portIn = jack_port_register (client, "L.C. XL in", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput | JackPortIsTerminal, 0);
     portMmcIn = jack_port_register (client, "MMC in", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput | JackPortIsTerminal, 0);
     portMidiControlIn = jack_port_register (client, "Midi Control in", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput | JackPortIsTerminal, 0);
-    portOut = jack_port_register (client, "L C XL out", JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput | JackPortIsTerminal, 0);
+    portOut = jack_port_register (client, "L.C. XL out", JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput | JackPortIsTerminal, 0);
     portMidiControlOut = jack_port_register (client, "Midi Control out", JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput | JackPortIsTerminal, 0);
 
     jack_set_process_callback (client, process, 0);
