@@ -42,7 +42,7 @@ const int trackControlNotesPreset1[8] = { 73, 74, 75, 76, 89, 90, 91, 92 };
 static void
 describe (const jack_midi_event_t* event)
 {
-	if (event->size == 0) {
+    if (event->size == 0) {
         printf ("empty event\n");
         return;
 	}
@@ -86,7 +86,7 @@ describe (const jack_midi_event_t* event)
     printf ("\n");
 }
 
-int
+static void
 send (jack_midi_event_t event, jack_nframes_t frames, jack_nframes_t frame) {
     printf("‹—M  ");
     describe (&event);
@@ -94,25 +94,26 @@ send (jack_midi_event_t event, jack_nframes_t frames, jack_nframes_t frame) {
     assert (jackBufferOut);
     eventBufferOut = jack_midi_event_reserve(jackBufferOut, frame, message_size);
     memcpy(eventBufferOut, event.buffer, event.size * sizeof(jack_midi_data_t));
-
-    return 0;
 }
 
-int
-updateTrackFocus(jack_nframes_t frames, jack_nframes_t frame) {
-    jack_midi_event_t *event = new jack_midi_event_t;
+static void
+updateTrackFocus(jack_midi_event_t event, jack_nframes_t frames, jack_nframes_t frame) {
+//    jack_midi_event_t event = {frame, 3};
 
     for (int i = 0; i < 8; i++) {
+        event.size = 3;
+        event.buffer[1] = trackFocusNotesPreset1 [i];
+
         if (trackFocusStatePreset1[i]) {
-
+            event.buffer[0] = 0x98;
+            event.buffer[2] = 0x7f;
         } else {
-
+            event.buffer[0] = 0x88;
+            event.buffer[2] = 0;
         }
+        send(event, frames, frame);
     }
 
-    send(*event, frames, frame);
-
-    return 0;
 }
 
 int
@@ -124,7 +125,9 @@ process (jack_nframes_t frames, void* arg)
     assert (jackBufferIn);
 
     for (jack_nframes_t frame = 0; frame < jack_midi_get_event_count (jackBufferIn); ++frame) {
+
         int echo = 1;
+        jack_midi_event_t event;
 
         // read
         jack_midi_event_get (&event, jackBufferIn, frame);
@@ -149,10 +152,10 @@ process (jack_nframes_t frames, void* arg)
 
 
 
-        if (event.buffer[1] == 0x45) {
-            state++;
-            printf("new state: %d\n", state);
-        }
+//        if (event.buffer[1] == 0x45) {
+//            state++;
+//            printf("new state: %d\n", state);
+//        }
 
         // manipulate event
         // Factory preset 1 = channel 9,
@@ -180,17 +183,16 @@ process (jack_nframes_t frames, void* arg)
                 if (event.buffer[1] == trackFocusNotesPreset1[i]) {
                     trackFocusStatePreset1[i] = ! trackFocusStatePreset1[i];
 
-                    updateTrackFocus(frames, frame);
 
-                    if (mutePressed) {
-                        send(event, frames, frame);
-                    }
-                    if (soloPressed) {
-                        send(event, frames, frame);
-                    }
-                    if (recArmPressed) {
-                        send(event, frames, frame);
-                    }
+//                    if (mutePressed) {
+//                        send(event, frames, frame);
+//                    }
+//                    if (soloPressed) {
+//                        send(event, frames, frame);
+//                    }
+//                    if (recArmPressed) {
+//                        send(event, frames, frame);
+//                    }
                 }
                 printf("%d ", trackFocusStatePreset1[i]);
             }
@@ -218,6 +220,9 @@ process (jack_nframes_t frames, void* arg)
 //            event.buffer[0] &= 0xf0 | 9;
             send(event, frames, frame);
         }
+
+        updateTrackFocus(event, frames, frame);
+
     }
 
 
